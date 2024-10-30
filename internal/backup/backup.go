@@ -6,6 +6,7 @@ import (
 	"github.com/manifoldco/promptui"
 	"github.com/zzj0403/bitwardenBak/config"
 	"github.com/zzj0403/bitwardenBak/pkg/ossx"
+	"github.com/zzj0403/bitwardenBak/pkg/utlis"
 	"github.com/zzj0403/bitwardenBak/pkg/zipx"
 	"log"
 	"path/filepath"
@@ -89,11 +90,16 @@ func (b *Backup) RestoreFromOss() error {
 	_, result, err := prompt.Run()
 	log.Printf("您选择了文件: %s", result)
 	// 下载文件
+	err = utlis.EnsureDirExists(b.config.TmpDir)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
 	localFilePath := filepath.Join(b.config.TmpDir, filepath.Base(result))
 	log.Printf("文件将存储在: %s", localFilePath)
 	err = b.myOss.DownloadFile(result, localFilePath)
 	// 解压文件
-	err = zipx.UnzipFile(result, b.config.TmpDir)
+	err = zipx.UnzipFile(localFilePath, b.config.TmpDir)
 	if err != nil {
 		return err
 	}
