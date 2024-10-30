@@ -1,8 +1,10 @@
 package ali
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/schollz/progressbar/v3"
 	"github.com/zzj0403/bitwardenBak/pkg/ossx"
 	"io"
 )
@@ -74,10 +76,38 @@ func NewAliOss(conf *OssConfig) (*AliOss, error) {
 
 // PutFile uploads a file to OSS and returns the file's URL.
 func (a *AliOss) PutFile(filename string, file io.Reader) (string, error) {
-	if err := a.bucket.PutObject(filename, file); err != nil {
+	// 获取文件内容到缓冲区
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, file); err != nil {
+		return "", fmt.Errorf("error reading file content: %w", err)
+	}
+
+	// 创建进度条
+	bar := progressbar.NewOptions64(int64(buf.Len()), progressbar.OptionSetDescription("上传中..."))
+
+	// 创建一个管道
+	pr, pw := io.Pipe()
+
+	// 启动一个 goroutine 来写入数据并更新进度条
+	go func() {
+		defer pw.Close()
+		for _, b := range buf.Bytes() {
+			if _, err := pw.Write([]byte{b}); err != nil {
+				return
+			}
+			bar.Add(1) // 更新进度条
+		}
+	}()
+
+	// 上传文件到 OSS
+	if err := a.bucket.PutObject(filename, pr); err != nil {
 		return "", fmt.Errorf("error putting file to OSS: %w", err)
 	}
 
+	// 上传完成后换行
+	fmt.Println()
+
+	// 获取文件的 URL
 	url, err := a.getUrl(filename)
 	if err != nil {
 		return "", err

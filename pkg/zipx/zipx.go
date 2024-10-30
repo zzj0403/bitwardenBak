@@ -38,8 +38,7 @@ func ZipDirectory(source string, target string) error {
 	})
 
 	bar := progressbar.NewOptions64(totalFiles, progressbar.OptionSetDescription("压缩中..."))
-
-	return filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
+	err = filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error walking through files: %w", err)
 		}
@@ -63,6 +62,8 @@ func ZipDirectory(source string, target string) error {
 		bar.Add(1)
 		return nil
 	})
+	fmt.Println()
+	return err
 }
 
 // addFileToZip 将文件添加到 ZIP
@@ -101,6 +102,9 @@ func UnzipFile(source string, target string) error {
 		}
 		bar.Add(1)
 	}
+
+	// 在进度条完成后输出换行
+	fmt.Println()
 	return nil
 }
 
@@ -184,6 +188,7 @@ func ZipDirectoryToIo(source string) (io.Reader, error) {
 	if err := zipWriter.Close(); err != nil {
 		return nil, err
 	}
-
+	// 在进度条完成后输出换行
+	fmt.Println()
 	return &buf, nil // 返回压缩后的内容
 }
