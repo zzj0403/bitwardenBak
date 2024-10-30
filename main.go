@@ -34,6 +34,15 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(BackupCmd)
+	var RestoreCmd = &cobra.Command{
+		Use:   "restore",
+		Short: "执行数据库迁移",
+		Run: func(cmd *cobra.Command, args []string) {
+			startRestoreCmd()
+		},
+	}
+	rootCmd.AddCommand(BackupCmd, RestoreCmd)
+
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatalf("启动失败%s", err.Error())
 	}
@@ -59,4 +68,14 @@ func startBackup() {
 		return
 	}
 	log.Println("备份成功")
+}
+func startRestoreCmd() {
+	InitApp()
+	err := backup.RestoreFromOss()
+	if err != nil {
+		log.Fatalf("恢复失败：%s", err.Error())
+		return
+	}
+	log.Println("恢复成功")
+
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/zzj0403/bitwardenBak/pkg/ossx"
 	"io"
+	"sort"
 )
 
 var (
@@ -114,4 +115,44 @@ func (listener *OssProgressListener) ProgressChanged(event *oss.ProgressEvent) {
 			event.ConsumedBytes, event.TotalBytes)
 	default:
 	}
+}
+
+// 获取指定目录下所有子目录的信息
+func (a *AliOss) DirFilesList(dir string) (FilesList []oss.ObjectProperties, err error) {
+	continueToken := ""
+	prefix := dir
+	lsRes, err := a.bucket.ListObjectsV2(oss.Prefix(prefix), oss.ContinuationToken(continueToken))
+	if err != nil {
+		return nil, err
+	}
+	// 打印列举结果。
+	for _, object := range lsRes.Objects {
+		FilesList = append(FilesList, object)
+	}
+	// 如果结果被截断，则更新继续标记并继续循环
+	if lsRes.IsTruncated {
+		continueToken = lsRes.NextContinuationToken
+	} else {
+		return FilesList, nil
+	}
+	// 根据最后修改时间排序
+	sort.Slice(FilesList, func(i, j int) bool {
+		return FilesList[i].LastModified.After(FilesList[j].LastModified)
+	})
+
+	// 只取最新的 10 个文件
+	if len(FilesList) > 10 {
+		FilesList = FilesList[:10]
+	}
+
+	return FilesList, err
+}
+
+// 下载指定文件到本地
+func (a *AliOss) DownloadFile(filename string, localPath string) error {
+	err := a.bucket.GetObjectToFile(filename, localPath)
+	if err != nil {
+		return fmt.Errorf("error downloading file from OSS: %w", err)
+	}
+	return nil
 }

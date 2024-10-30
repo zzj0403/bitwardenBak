@@ -8,6 +8,7 @@ import (
 
 type Config struct {
 	BackupDir string         `mapstructure:"backup_dir" json:"backup_dir" yaml:"backup_dir"`
+	TmpDir    string         `mapstructure:"tmp_dir" json:"tmp_dir" yaml:"tmp_dir"`
 	AliOss    *ali.OssConfig `mapstructure:"ali_oss" json:"ali_oss" yaml:"ali_oss"`
 	Ding      *DingTalk      `mapstructure:"ding" json:"ding" yaml:"ding"`
 }
