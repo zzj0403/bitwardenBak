@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	oss    ossx.Oss
-	ding   *dingtalk.DingTalk
-	backup *backup2.Backup
+	oss            ossx.Oss
+	ding           *dingtalk.DingTalk
+	backup         *backup2.Backup
+	configFilePath string
 )
 
 func main() {
-	var configFilePath string
 	var rootCmd = &cobra.Command{
 		Use:   "help",
 		Short: "帮助",
@@ -41,7 +41,7 @@ func main() {
 }
 
 func InitApp() {
-	loadConfig, err := config.LoadConfig("loadConfig.yaml")
+	loadConfig, err := config.LoadConfig(configFilePath)
 	if err != nil {
 		return
 	}
