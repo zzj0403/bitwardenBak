@@ -1,0 +1,11 @@
+backup_dir: ./bitwarden
+ali_oss:
+  endpoint:
+  access_key_id:
+  access_key_secret:
+  bucket_name:
+  expired: 604800
+
+ding:
+  robot_token:
+  secret:
