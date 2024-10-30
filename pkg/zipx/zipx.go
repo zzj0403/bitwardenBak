@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 // ZipDirectory 压缩指定的目录
@@ -24,6 +26,19 @@ func ZipDirectory(source string, target string) error {
 		}
 	}()
 
+	var totalFiles int64
+	filepath.Walk(source, func(_ string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("error walking through files: %w", err)
+		}
+		if !fi.IsDir() {
+			totalFiles++
+		}
+		return nil
+	})
+
+	bar := progressbar.NewOptions64(totalFiles, progressbar.OptionSetDescription("压缩中..."))
+
 	return filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error walking through files: %w", err)
@@ -35,11 +50,18 @@ func ZipDirectory(source string, target string) error {
 		}
 
 		if fi.IsDir() {
-			_, err := zipWriter.Create(relPath + "/")
+			if _, err := zipWriter.Create(relPath + "/"); err != nil {
+				return fmt.Errorf("failed to create directory entry in zip: %w", err)
+			}
+			return nil
+		}
+
+		if err := addFileToZip(zipWriter, relPath, file); err != nil {
 			return err
 		}
 
-		return addFileToZip(zipWriter, relPath, file)
+		bar.Add(1)
+		return nil
 	})
 }
 
@@ -56,8 +78,7 @@ func addFileToZip(zipWriter *zip.Writer, relPath string, file string) error {
 	}
 	defer srcFile.Close()
 
-	_, err = io.Copy(zipFileWriter, srcFile)
-	if err != nil {
+	if _, err = io.Copy(zipFileWriter, srcFile); err != nil {
 		return fmt.Errorf("failed to write file %s to zip: %w", file, err)
 	}
 
@@ -72,10 +93,13 @@ func UnzipFile(source string, target string) error {
 	}
 	defer zipFile.Close()
 
+	bar := progressbar.NewOptions64(int64(len(zipFile.File)), progressbar.OptionSetDescription("解压中..."))
+
 	for _, file := range zipFile.File {
 		if err := extractFile(file, target); err != nil {
 			return err
 		}
+		bar.Add(1)
 	}
 	return nil
 }
@@ -111,10 +135,23 @@ func extractFile(file *zip.File, target string) error {
 	return nil
 }
 
-// ZipDirectory 压缩指定的目录，并返回压缩文件的 io.Reader
+// ZipDirectoryToIo 压缩指定的目录，并返回压缩文件的 io.Reader
 func ZipDirectoryToIo(source string) (io.Reader, error) {
 	var buf bytes.Buffer
 	zipWriter := zip.NewWriter(&buf)
+
+	var totalFiles int64
+	filepath.Walk(source, func(_ string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			totalFiles++
+		}
+		return nil
+	})
+
+	bar := progressbar.NewOptions64(totalFiles, progressbar.OptionSetDescription("压缩中..."))
 
 	err := filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
@@ -127,23 +164,18 @@ func ZipDirectoryToIo(source string) (io.Reader, error) {
 		}
 
 		if fi.IsDir() {
-			_, err := zipWriter.Create(relPath + "/")
+			if _, err := zipWriter.Create(relPath + "/"); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		if err := addFileToZip(zipWriter, relPath, file); err != nil {
 			return err
 		}
 
-		zipFileWriter, err := zipWriter.Create(relPath)
-		if err != nil {
-			return err
-		}
-
-		srcFile, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer srcFile.Close()
-
-		_, err = io.Copy(zipFileWriter, srcFile)
-		return err
+		bar.Add(1)
+		return nil
 	})
 	if err != nil {
 		return nil, err

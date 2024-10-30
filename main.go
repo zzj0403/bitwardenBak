@@ -58,4 +58,5 @@ func startBackup() {
 		log.Fatalf("备份失败：%s", err.Error())
 		return
 	}
+	log.Println("备份成功")
 }

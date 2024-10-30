@@ -28,6 +28,7 @@ func (b *Backup) BackupToOss() error {
 	// 压缩文件
 	// 获取output名字
 	outputFilename := b.getOutputFilename("backup")
+	log.Printf("正在压缩目录%s", outputFilename)
 	io, err := zipx.ZipDirectoryToIo(b.config.BackupDir)
 	if err != nil {
 		log.Printf("压缩目录失败: %v", err)
