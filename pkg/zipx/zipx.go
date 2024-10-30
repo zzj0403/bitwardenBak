@@ -3,6 +3,10 @@ package zipx
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -140,24 +144,20 @@ func extractFile(file *zip.File, target string) error {
 }
 
 // ZipDirectoryToIo 压缩指定的目录，并返回压缩文件的 io.Reader
-func ZipDirectoryToIo(source string) (io.Reader, error) {
+func ZipDirectoryToIo(source string, password string) (io.Reader, error) {
 	var buf bytes.Buffer
 	zipWriter := zip.NewWriter(&buf)
 
-	var totalFiles int64
-	filepath.Walk(source, func(_ string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !fi.IsDir() {
-			totalFiles++
-		}
-		return nil
-	})
+	// 计算总文件数以设置进度条
+	totalFiles, err := countFiles(source)
+	if err != nil {
+		return nil, err
+	}
 
 	bar := progressbar.NewOptions64(totalFiles, progressbar.OptionSetDescription("压缩中..."))
 
-	err := filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
+	// 压缩文件
+	if err := filepath.Walk(source, func(file string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -169,7 +169,7 @@ func ZipDirectoryToIo(source string) (io.Reader, error) {
 
 		if fi.IsDir() {
 			if _, err := zipWriter.Create(relPath + "/"); err != nil {
-				return err
+				return fmt.Errorf("failed to create zip entry for directory %s: %w", relPath, err)
 			}
 			return nil
 		}
@@ -178,17 +178,96 @@ func ZipDirectoryToIo(source string) (io.Reader, error) {
 			return err
 		}
 
+		// 更新进度条
 		bar.Add(1)
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 
 	if err := zipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close zip writer: %w", err)
+	}
+
+	// 在进度条完成后输出换行
+	if err := bar.Finish(); err != nil {
 		return nil, err
 	}
-	// 在进度条完成后输出换行
-	fmt.Println()
+
+	fmt.Println() // 确保输出换行
+
+	// 加密压缩文件内容
+	if password != "" {
+		encryptedContent, err := encryptFileContent(&buf, password)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(encryptedContent), nil
+	}
 	return &buf, nil // 返回压缩后的内容
+}
+
+// countFiles 计算指定目录中的文件数量
+func countFiles(source string) (int64, error) {
+	var totalFiles int64
+	err := filepath.Walk(source, func(_ string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			totalFiles++
+		}
+		return nil
+	})
+	return totalFiles, err
+}
+
+// GenerateRandomPassword 生成随机密码
+func GenerateRandomPassword(length int) (string, error) {
+	passwordBytes := make([]byte, length)
+	if _, err := rand.Read(passwordBytes); err != nil {
+		return "", fmt.Errorf("failed to generate random password: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(passwordBytes)[:length], nil
+}
+
+// DecryptFileContent 解密文件内容
+func DecryptFileContent(encryptedData []byte, password string) ([]byte, error) {
+	block, err := aes.NewCipher([]byte(password))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
+	}
+
+	if len(encryptedData) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+
+	iv := encryptedData[:aes.BlockSize]
+	ciphertext := encryptedData[aes.BlockSize:]
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+
+	return ciphertext, nil
+}
+
+// / encryptFileContent 使用 AES 加密文件内容
+func encryptFileContent(file io.Reader, password string) ([]byte, error) {
+	block, err := aes.NewCipher([]byte(password))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES cipher: %w", err)
+	}
+
+	// 生成随机初始化向量 (IV)
+	ciphertext := make([]byte, aes.BlockSize+len(password))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, fmt.Errorf("failed to read random bytes: %w", err)
+	}
+
+	// 加密
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], []byte(password))
+
+	return ciphertext, nil
 }
