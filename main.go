@@ -19,8 +19,8 @@ var (
 func main() {
 	var configFilePath string
 	var rootCmd = &cobra.Command{
-		Use:   "",
-		Short: "",
+		Use:   "help",
+		Short: "帮助",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
@@ -34,6 +34,10 @@ func main() {
 		},
 	}
 	rootCmd.AddCommand(BackupCmd)
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatalf("启动失败%s", err.Error())
+	}
+
 }
 
 func InitApp() {
