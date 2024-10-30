@@ -1,14 +1,13 @@
 package main
 
 import (
-	"context"
 	"github.com/blinkbean/dingtalk"
 	"github.com/spf13/cobra"
 	"github.com/zzj0403/bitwardenBak/config"
 	backup2 "github.com/zzj0403/bitwardenBak/internal/backup"
 	"github.com/zzj0403/bitwardenBak/pkg/ossx"
 	"github.com/zzj0403/bitwardenBak/pkg/ossx/ali"
-	"google.golang.org/appengine/log"
+	"log"
 )
 
 var (
@@ -52,7 +51,7 @@ func startBackup() {
 	InitApp()
 	err := backup.BackupToOss()
 	if err != nil {
-		log.Errorf(context.Background(), "备份失败：%s", err.Error())
+		log.Fatalf("备份失败：%s", err.Error())
 		return
 	}
 }
