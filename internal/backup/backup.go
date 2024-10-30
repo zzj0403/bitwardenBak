@@ -25,13 +25,11 @@ func NewBackup(config *config.Config, myOss ossx.Oss, ding *dingtalk.DingTalk) *
 }
 
 func (b *Backup) BackupToOss() error {
-	password, err := zipx.GenerateRandomPassword(16)
+	// 压缩文件
+	// 获取output名字
 	outputFilename := b.getOutputFilename("backup")
-	if err != nil {
-		return err
-	}
 	log.Printf("正在压缩目录%s", outputFilename)
-	io, err := zipx.ZipDirectoryToIo(b.config.BackupDir, password)
+	io, err := zipx.ZipDirectoryToIo(b.config.BackupDir)
 	if err != nil {
 		log.Printf("压缩目录失败: %v", err)
 		return b.ding.SendMarkDownMessage("备份bitwarden失败", "压缩目录失败，请检查日志。")
@@ -44,15 +42,15 @@ func (b *Backup) BackupToOss() error {
 
 	}
 	// 发送钉钉消息
-	message := b.genMarkDownMessage(url, password)
+	message := b.genMarkDownMessage(url)
 	return b.ding.SendMarkDownMessage("备份bitwarden成功", message)
 
 }
 
 // genMarkDownMessage 生成钉钉消息的 Markdown 格式
-func (b *Backup) genMarkDownMessage(url string, password string) string {
+func (b *Backup) genMarkDownMessage(url string) string {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("备份成功！\n - 下载链接: [点击下载](%s)\n - 备份时间: %s \n - 解压密码：%s", url, currentTime, password)
+	return fmt.Sprintf("备份成功！\n - 下载链接: [点击下载](%s)\n - 备份时间: %s", url, currentTime)
 }
 func (b *Backup) getOutputFilename(outPut string) string {
 	// 获取当前时间拼成2024-10-30_15:07_bitwarden.zip
