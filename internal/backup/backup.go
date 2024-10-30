@@ -50,7 +50,7 @@ func (b *Backup) BackupToOss() error {
 // genMarkDownMessage 生成钉钉消息的 Markdown 格式
 func (b *Backup) genMarkDownMessage(url string) string {
 	currentTime := time.Now().Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("备份成功！\n下载链接: [%s](%s)\n备份时间: %s", url, url, currentTime)
+	return fmt.Sprintf("备份成功！\n - 下载链接: [点击下载](%s)\n - 备份时间: %s", url, currentTime)
 }
 func (b *Backup) getOutputFilename(outPut string) string {
 	// 获取当前时间拼成2024-10-30_15:07_bitwarden.zip
